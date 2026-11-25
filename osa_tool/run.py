@@ -67,6 +67,38 @@ def main():
     apply_argument_descriptions_from_yaml(parser, ["paper_analysis_cli"])
     args = parser.parse_args()
 
+    if getattr(args, "prismm_remedy", None):
+        from osa_tool.operations.analysis.prismm_remedy import run_remedy, score_remedy
+
+        import json
+        import shutil
+        from osa_tool.core.llm.host import host_command
+
+        if args.remedy_build_context:
+            from osa_tool.operations.analysis.remedy_context import build_context
+
+            if not args.remedy_output or args.remedy_score or args.remedy_context or args.paper_analysis:
+                parser.error("Use --remedy-build-context with --remedy-output")
+            executable = host_command() or shutil.which("codex")
+            if not executable:
+                parser.error("Codex CLI is required")
+            data = build_context(Path(args.prismm_remedy), Path(args.remedy_build_context),
+                                 args.remedy_model or "gpt-6.1-sol", executable)
+            target = Path(args.remedy_output)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf8")
+            return
+        if args.remedy_score:
+            if args.paper_analysis or args.remedy_output:
+                parser.error("--remedy-score reads predictions from a completed Remedy run")
+            print(json.dumps(score_remedy(Path(args.prismm_remedy), Path(args.remedy_score))))
+            return
+        if args.paper_analysis or not args.remedy_output:
+            parser.error("--prismm-remedy requires --remedy-output and runs separately from --paper-analysis")
+        run_remedy(Path(args.prismm_remedy), args.remedy_model or "gpt-6.1-sol", Path(args.remedy_output),
+                   json.loads(Path(args.remedy_context).read_bytes()) if args.remedy_context else None)
+        return
+
     if args.paper_analysis:
         from osa_tool.tools.focused_cli import configure_focused_tool_logging
         from osa_tool.tools.paper_analysis.cli import (

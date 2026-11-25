@@ -140,8 +140,14 @@ The tables below are generated from the metadata used by the `osa-tool` command-
 | `notebook_report` | `--notebook-report` | list | — | Analyze Jupyter notebooks and generate a notebook PDF report.<br>Provide one or multiple paths, or leave empty for repo directory. | — |
 | `organize` | `--organize` | flag | — | Organize the repository structure by adding standard 'tests' and 'examples' directories if missing. | — |
 | `paper_analysis` | `--paper-analysis` | flag | — | Run the analysis-only paper claim and repository verification pipeline. | — |
+| `prismm_remedy` | `--prismm-remedy` | str | — | Run paired Remedy answer selection on a prepared PRISMM Focused manifest. | — |
 | `readme` | `--readme` | flag | — | Generate a README.md file based on repository content and metadata. | — |
 | `refine_readme` | `--refine-readme` | flag | — | Enable advanced README refinement. This process requires a powerful LLM model (such as GPT-4 or equivalent) for optimal results. | — |
+| `remedy_build_context` | `--remedy-build-context` | str | — | Build discrepancy-specific excerpts from the pinned repository registry and save them with --remedy-output. | — |
+| `remedy_context` | `--remedy-context` | str | — | Include the focused retrieval arm using a prepared context JSON alongside PDF and legacy code. | — |
+| `remedy_model` | `--remedy-model` | str | — | Codex model for Remedy (default gpt-6.1-sol, medium effort). | — |
+| `remedy_output` | `--remedy-output` | str | — | Write paired Remedy predictions to this JSON file. | — |
+| `remedy_score` | `--remedy-score` | str | — | Score a completed Remedy prediction JSON against the separate keys in the manifest dataset. | — |
 | `report` | `--report` | flag | — | Analyze the repository and generate a PDF report with project insights. | — |
 | `requirements` | `--requirements` | flag | — | Generate or refine a requirements.txt file based on repository content. | — |
 | `scorecard` | `--scorecard` | flag | — | Run OpenSSF Scorecard analysis and include the results in the PDF reports. | — |
@@ -227,3 +233,24 @@ The tables below are generated from the metadata used by the `osa-tool` command-
 OSA chooses the workflow output path from the repository platform; the current CLI does not provide a
 `--workflows-output-dir` option. GitHub workflows go under `.github/workflows`, GitLab uses `.gitlab-ci.yml` at the
 repository root, and other supported platforms use their configured workflow locations.
+
+### PRISMM Remedy
+
+Run paired answer selection with an authenticated Codex CLI and a prepared Focused-context dataset.
+
+```shell
+osa-tool --prismm-remedy manifest.json --remedy-model gpt-6.2-sol --remedy-output predictions.json
+```
+
+The manifest contains a `cases` list. Each case has a unique `uid`, ordered `images` in the case directory, and `input_sha256` hashes keyed by `pdf` and `code`. Place the question, parts and four lettered options in `<uid>/pdf/input.json`. The paired `<uid>/code/input.json` adds `repository_context`. OSA returns one answer letter per case and mode. Score the predictions against the separate answer keys with `osa-tool --prismm-remedy manifest.json --remedy-score predictions.json`.
+
+To compare retrieval methods, build a context file once and reuse it across runs:
+
+```shell
+osa-tool --prismm-remedy manifest.json --remedy-model gpt-6.2-sol --remedy-build-context repositories.json --remedy-output context.json
+osa-tool --prismm-remedy manifest.json --remedy-model gpt-6.2-sol --remedy-context context.json --remedy-output predictions.json
+```
+
+The registry lists `papers` with a `pid` matching the case's `paper_id` and a `repos` list of local Git checkouts (`root`, `url`, full commit `sha`, optional subdirectory `scope`). The model reads the focused fragments, images and all four candidate remedies to propose search terms. It searches pinned code, configurations, result files and documentation using short aliases and separator variants. It checks the candidate excerpts against the disputed facts and keeps up to three with a matching quotation. If evidence is insufficient, the focused arm receives the original PDF request. The context file records the proposed issue, terms, excerpts and input fingerprint. The score output includes separate counts for PDF, legacy code and focused code.
+
+The focused arm starts with the PDF answer from the same run. If code suggests another option, a separate call records the discrepancy from the supplied paper parts and images alone. Using those observations, a reviewer compares the two letters in alphabetical order without their origins. A change requires a source quotation, a paper reference, a specific target and edit, and an explanation of how the code favors that edit. It keeps the PDF answer on ambiguity or an invalid citation. The prediction records the proposed answer and review when they differ.

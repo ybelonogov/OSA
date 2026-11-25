@@ -1,6 +1,31 @@
 # Optional cli_description is used in compact plan tables; description remains
 # the full text for CLI help and generated documentation.
 arguments:
+  prismm_remedy:
+    aliases: ["--prismm-remedy"]
+    type: str
+    description: "Run paired Remedy answer selection on a prepared PRISMM Focused manifest."
+  remedy_model:
+    aliases: ["--remedy-model"]
+    type: str
+    description: "Codex model for Remedy (default gpt-6.1-sol, medium effort)."
+  remedy_score:
+    aliases: ["--remedy-score"]
+    type: str
+    description: "Score a completed Remedy prediction JSON against the separate keys in the manifest dataset."
+  remedy_build_context:
+    aliases: ["--remedy-build-context"]
+    type: str
+    description: "Build discrepancy-specific excerpts from the pinned repository registry and save them with --remedy-output."
+  remedy_context:
+    aliases: ["--remedy-context"]
+    type: str
+    description: "Include the focused retrieval arm using a prepared context JSON alongside PDF and legacy code."
+  remedy_output:
+    aliases: ["--remedy-output"]
+    type: str
+    description: "Write paired Remedy predictions to this JSON file."
+
   paper_analysis:
     aliases: [ "--paper-analysis" ]
     type: flag
