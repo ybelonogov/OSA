@@ -141,6 +141,9 @@ class PaperClaimsSettings(BaseModel):
     review_pair_counterevidence: bool = False
     extraction_profile: Literal["implementation", "paper_assertions"] = "implementation"
     contradiction_code_context: bool = True
+    inspect_manuscript_issues: bool = False
+    manuscript_review_profile: Literal["text", "visual"] = "text"
+    manuscript_source_pdf: Path | None = None
     marker: PaperMarkerSettings = Field(default_factory=PaperMarkerSettings)
 
     def to_pipeline_options(self):

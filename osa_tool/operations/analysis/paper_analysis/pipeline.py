@@ -102,6 +102,21 @@ class PaperAnalysisOperation:
             lambda: self._load_claims(output_dir, paper_handler, settings.paper_claims, claim_input),
             on_progress,
         )
+        if settings.paper_claims.inspect_manuscript_issues:
+            from .manuscript_issues import ReviewedManuscriptIssue, inspect_manuscript
+            from osa_tool.operations.analysis.paper_claims.repository_context import repository_lookup
+            handler = paper_handler or ModelHandlerFactory.build(self._config_manager.get_model_settings("paper_claims"))
+            lookup = repository_lookup(Path(self._git_agent.clone_dir)) if settings.paper_claims.contradiction_code_context else None
+            profile = settings.paper_claims.manuscript_review_profile
+            source_pdf = self._request.paper_path or settings.paper_claims.manuscript_source_pdf
+            if profile == "visual" and (source_pdf is None or not Path(source_pdf).is_file()):
+                raise ValueError("Visual manuscript review requires a paper PDF or manuscript_source_pdf")
+            findings = inspect_manuscript(claims, handler, lookup)
+            if profile == "visual":
+                import asyncio
+                from .visual_manuscript import inspect_visual_manuscript
+                findings = asyncio.run(inspect_visual_manuscript(claims, handler, lookup, source_pdf, findings))
+            paper_summary.manuscript_issues = [ReviewedManuscriptIssue.model_validate(issue) for issue in findings]
         verification_handler = ModelHandlerFactory.build(self._config_manager.get_model_settings("paper_verification"))
         verifier = self._verifier_factory(self._git_agent.clone_dir, verification_handler, settings.verification)
         verification, verification_json_path = self._run_stage(
@@ -438,6 +453,8 @@ class PaperAnalysisOperation:
                 f"Eligible claims: {stats.eligible_total}",
                 f"Reported claims: {stats.total}",
                 f"Implemented claims: {stats.implemented}/{stats.total} ({stats.implementation_rate_pct}%)",
+                *([f"Manuscript issues: {len(result.paper_claims.manuscript_issues)}"]
+                  if result.paper_claims.manuscript_issues is not None else []),
                 *conflicts,
                 *([f"Reporting issues: {len(reporting_reviews)} (showing {len(notes)}; see pair_reviews for evidence)", *notes]
                   if reporting_reviews else []),
